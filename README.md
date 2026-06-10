@@ -48,11 +48,16 @@ password: symfony_password
 
 ## Creating a user login
 
+The local Docker image applies a patch that disables the signup CAPTCHA.
+
 1. Register via the application user interface.
-2. Connect to the database with a SQL editor (e.g. [TablePlus](https://tableplus.com/)), using the credentials referenced above.
-3. Navigate to the `users` table and find the record pointing to the user you registered.
-4. Set the `enabled` field to `1`.
-5. You can now login.
+2. Confirm local users from a shell:
+
+```sh
+make confirm-users
+```
+
+3. You can now login.
 
 ## Creating an OAuth app
 

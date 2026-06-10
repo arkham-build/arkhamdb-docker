@@ -45,6 +45,10 @@ ENV MYSQL_USER $MYSQL_USER
 # copy app to container.
 COPY arkhamdb .
 
+# apply local development patches.
+COPY build/patches/disable-local-signup-captcha.patch /tmp/disable-local-signup-captcha.patch
+RUN rm -rf .git && git apply -p1 /tmp/disable-local-signup-captcha.patch
+
 # copy pre-configured parameters to container.
 # needs to be present before composer install is run.
 COPY build/parameters.yml ./app/config/parameters.yml
