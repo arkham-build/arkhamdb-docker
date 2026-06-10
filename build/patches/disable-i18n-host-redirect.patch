@@ -1,0 +1,12 @@
+diff --git a/app/config/config.yml b/app/config/config.yml
+--- a/app/config/config.yml
++++ b/app/config/config.yml
+@@ -115,7 +115,7 @@ jms_i18n_routing:
+     hosts:
+         en: "%website_url%"
+         es: "es.%website_url%" 
+-    redirect_to_host: true
++    redirect_to_host: false
+     
+ # Swiftmailer Configuration
+ swiftmailer:

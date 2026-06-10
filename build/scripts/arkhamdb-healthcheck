@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+
+: "${MYSQL_DOCKER_HOST_NAME:?MYSQL_DOCKER_HOST_NAME is required}"
+: "${MYSQL_DATABASE:?MYSQL_DATABASE is required}"
+: "${MYSQL_USER:?MYSQL_USER is required}"
+: "${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}"
+
+MYSQL_TCP_PORT="${MYSQL_TCP_PORT:-3306}"
+
+card_count="$(MYSQL_PWD="$MYSQL_PASSWORD" mysql \
+  --protocol=TCP \
+  -h "$MYSQL_DOCKER_HOST_NAME" \
+  -P "$MYSQL_TCP_PORT" \
+  -u "$MYSQL_USER" \
+  --batch \
+  --skip-column-names \
+  "$MYSQL_DATABASE" \
+  -e "SELECT COUNT(*) FROM card WHERE code = '01001'" 2>/dev/null)"
+
+[ "$card_count" -gt 0 ]

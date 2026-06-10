@@ -1,8 +1,9 @@
 x-mysql-environment: &mysql-environment
-  MYSQL_DATABASE: ${MYSQL_DATABASE}
-  MYSQL_DOCKER_HOST_NAME: ${MYSQL_DOCKER_HOST_NAME}
-  MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-  MYSQL_USER: ${MYSQL_USER}
+  MYSQL_DATABASE: ${MYSQL_DATABASE:-symfony}
+  MYSQL_DOCKER_HOST_NAME: ${MYSQL_DOCKER_HOST_NAME:-mariadb}
+  MYSQL_PASSWORD: ${MYSQL_PASSWORD:-symfony_password}
+  MYSQL_TCP_PORT: ${MYSQL_TCP_PORT:-3306}
+  MYSQL_USER: ${MYSQL_USER:-symfony_user}
 
 name: arkhamdb
 
@@ -14,13 +15,35 @@ services:
         <<: *mysql-environment
     environment:
       <<: *mysql-environment
+      ARKHAMDB_DOCKER_TEST_API_KEY: ${ARKHAMDB_DOCKER_TEST_API_KEY:-}
     ports:
-      - "8000:80"
+      - "${ARKHAMDB_HTTP_PORT:-8000}:80"
     volumes:
       - ./arkhamdb-json-data:/data
       - ./images:/code/web/bundles/cards
     depends_on:
-      - mariadb
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "arkhamdb-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  init:
+    build:
+      context: .
+      args:
+        <<: *mysql-environment
+    environment:
+      <<: *mysql-environment
+      ARKHAMDB_INIT_FRESH: ${ARKHAMDB_INIT_FRESH:-false}
+    volumes:
+      - ./arkhamdb-json-data:/data
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    command: arkhamdb-init
 
   mariadb:
     image: mariadb:10.2
@@ -30,9 +53,14 @@ services:
       <<: *mysql-environment
       MYSQL_ROOT_PASSWORD: root_password
     ports:
-      - "3307:3306"
+      - "${ARKHAMDB_MYSQL_PORT:-3307}:3306"
     volumes:
       - app-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
 
 volumes:
   app-data:

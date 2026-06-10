@@ -1,0 +1,16 @@
+diff --git a/web/.htaccess b/web/.htaccess
+--- a/web/.htaccess
++++ b/web/.htaccess
+@@ -19,10 +19,8 @@ DirectoryIndex app.php
+     # project in a subdirectory, the base path will be prepended to allow proper
+     # resolution of the app.php file and to redirect to the correct URI. It will
+     # work in environments without path prefix as well, providing a safe, one-size
+-    # fits all solution. But as you do not need it in this case, you can comment
+-    # the following 2 lines to eliminate the overhead.
+-    RewriteCond %{REQUEST_URI}::$1 ^(/.+)/(.*)::\2$
+-    RewriteRule ^(.*) - [E=BASE:%1]
++    # fits all solution. The Docker image always serves the app at the web root.
++    RewriteRule ^(.*) - [E=BASE:]
+ 
+     # Sets the HTTP_AUTHORIZATION header removed by apache
+     RewriteCond %{HTTP:Authorization} .

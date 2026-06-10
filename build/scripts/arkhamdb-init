@@ -1,0 +1,57 @@
+#!/bin/sh
+set -eu
+
+: "${MYSQL_DOCKER_HOST_NAME:?MYSQL_DOCKER_HOST_NAME is required}"
+: "${MYSQL_DATABASE:?MYSQL_DATABASE is required}"
+: "${MYSQL_USER:?MYSQL_USER is required}"
+: "${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}"
+
+MYSQL_TCP_PORT="${MYSQL_TCP_PORT:-3306}"
+
+mysql_query() {
+  MYSQL_PWD="$MYSQL_PASSWORD" mysql \
+    --protocol=TCP \
+    -h "$MYSQL_DOCKER_HOST_NAME" \
+    -P "$MYSQL_TCP_PORT" \
+    -u "$MYSQL_USER" \
+    --batch \
+    --skip-column-names \
+    "$MYSQL_DATABASE" \
+    -e "$1"
+}
+
+for i in $(seq 1 60); do
+  if MYSQL_PWD="$MYSQL_PASSWORD" mysqladmin ping \
+    -h "$MYSQL_DOCKER_HOST_NAME" \
+    -P "$MYSQL_TCP_PORT" \
+    -u "$MYSQL_USER" \
+    --silent >/dev/null 2>&1; then
+    break
+  fi
+
+  if [ "$i" -eq 60 ]; then
+    echo "Timed out waiting for MariaDB" >&2
+    exit 1
+  fi
+
+  sleep 2
+done
+
+if [ "${ARKHAMDB_INIT_FRESH:-false}" = "true" ]; then
+  php bin/console doctrine:schema:drop --force --env=prod
+  php bin/console doctrine:schema:create --env=prod
+  php bin/console app:import:std /data/ -n --env=prod
+  exit 0
+fi
+
+table_count="$(mysql_query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${MYSQL_DATABASE}'")"
+
+if [ "$table_count" = "0" ]; then
+  php bin/console doctrine:schema:create --env=prod
+fi
+
+card_count="$(mysql_query "SELECT COUNT(*) FROM card" 2>/dev/null || echo 0)"
+
+if [ "$card_count" = "0" ]; then
+  php bin/console app:import:std /data/ -n --env=prod
+fi

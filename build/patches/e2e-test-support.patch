@@ -1,0 +1,181 @@
+diff --git a/src/AppBundle/Resources/config/routing.yml b/src/AppBundle/Resources/config/routing.yml
+--- a/src/AppBundle/Resources/config/routing.yml
++++ b/src/AppBundle/Resources/config/routing.yml
+@@ -1,3 +1,21 @@
++arkhamdb_docker_health:
++    path: /_arkhamdb-docker/health
++    methods: [GET]
++    defaults:
++        _controller: AppBundle:ArkhamDbDockerTest:health
++
++arkhamdb_docker_create_user:
++    path: /_arkhamdb-docker/test/users
++    methods: [POST]
++    defaults:
++        _controller: AppBundle:ArkhamDbDockerTest:createUser
++
++arkhamdb_docker_create_oauth_app:
++    path: /_arkhamdb-docker/test/oauth-apps
++    methods: [POST]
++    defaults:
++        _controller: AppBundle:ArkhamDbDockerTest:createOAuthApp
++
+ app_admin:
+     resource: "@AppBundle/Resources/config/routing/routing_admin.yml"
+     prefix: /admin
+diff --git a/src/AppBundle/Controller/ArkhamDbDockerTestController.php b/src/AppBundle/Controller/ArkhamDbDockerTestController.php
+new file mode 100644
+--- /dev/null
++++ b/src/AppBundle/Controller/ArkhamDbDockerTestController.php
+@@ -0,0 +1,151 @@
++<?php
++
++namespace AppBundle\Controller;
++
++use AppBundle\Entity\Deck;
++use Symfony\Bundle\FrameworkBundle\Controller\Controller;
++use Symfony\Component\HttpFoundation\JsonResponse;
++use Symfony\Component\HttpFoundation\Request;
++
++class ArkhamDbDockerTestController extends Controller
++{
++    public function healthAction(Request $request)
++    {
++        $response = $this->authorize($request);
++        if ($response) {
++            return $response;
++        }
++
++        try {
++            $connection = $this->getDoctrine()->getManager()->getConnection();
++            $connection->connect();
++            $cardCount = (int) $connection->fetchColumn("SELECT COUNT(*) FROM card WHERE code = ?", ['01001']);
++        } catch (\Exception $e) {
++            return new JsonResponse(['ok' => false], 503);
++        }
++
++        if ($cardCount < 1) {
++            return new JsonResponse(['ok' => false], 503);
++        }
++
++        return new JsonResponse(['ok' => true]);
++    }
++
++    public function createOAuthAppAction(Request $request)
++    {
++        $response = $this->authorize($request);
++        if ($response) {
++            return $response;
++        }
++
++        $data = $this->decodeJson($request);
++        if (empty($data['name']) || empty($data['redirectUri'])) {
++            return new JsonResponse(['error' => 'name and redirectUri are required'], 400);
++        }
++
++        $clientManager = $this->get('fos_oauth_server.client_manager.default');
++        $client = $clientManager->createClient();
++        $client->setRedirectUris([(string) $data['redirectUri']]);
++        $client->setAllowedGrantTypes(['authorization_code', 'refresh_token']);
++        $client->setName((string) $data['name']);
++        $clientManager->updateClient($client);
++
++        return new JsonResponse([
++            'clientId' => $client->getPublicId(),
++            'clientSecret' => $client->getSecret(),
++        ]);
++    }
++
++    public function createUserAction(Request $request)
++    {
++        $response = $this->authorize($request);
++        if ($response) {
++            return $response;
++        }
++
++        $data = $this->decodeJson($request);
++        if (empty($data['username']) || empty($data['email']) || empty($data['password'])) {
++            return new JsonResponse(['error' => 'username, email, and password are required'], 400);
++        }
++
++        $username = (string) $data['username'];
++        $email = (string) $data['email'];
++        $password = (string) $data['password'];
++        $userManager = $this->get('fos_user.user_manager');
++
++        if ($userManager->findUserByUsername($username) || $userManager->findUserByEmail($email)) {
++            return new JsonResponse(['error' => 'username or email already exists'], 409);
++        }
++
++        $user = $userManager->createUser();
++        $user->setUsername($username);
++        $user->setEmail($email);
++        $user->setPlainPassword($password);
++        $user->setEnabled(true);
++        $user->setConfirmationToken(null);
++        $userManager->updateUser($user, true);
++
++        $deckId = null;
++        if (!isset($data['createDeck']) || $data['createDeck'] !== false) {
++            try {
++                $deck = $this->createDeck($user);
++            } catch (\RuntimeException $e) {
++                return new JsonResponse(['error' => $e->getMessage()], 503);
++            }
++            $deckId = $deck->getId();
++        }
++
++        return new JsonResponse([
++            'userId' => $user->getId(),
++            'username' => $username,
++            'email' => $email,
++            'password' => $password,
++            'deckId' => $deckId,
++        ]);
++    }
++
++    private function authorize(Request $request)
++    {
++        $expected = getenv('ARKHAMDB_DOCKER_TEST_API_KEY');
++        if (!$expected) {
++            return new JsonResponse(['error' => 'Not found'], 404);
++        }
++
++        if ($request->headers->get('X-ArkhamDB-Docker-Test-API-Key') !== $expected) {
++            return new JsonResponse(['error' => 'Forbidden'], 403);
++        }
++
++        return null;
++    }
++
++    private function decodeJson(Request $request)
++    {
++        $data = json_decode($request->getContent(), true);
++
++        return is_array($data) ? $data : [];
++    }
++
++    private function createDeck($user)
++    {
++        $em = $this->getDoctrine()->getManager();
++        $investigator = $em->getRepository('AppBundle:Card')->findOneBy(['code' => '01001']);
++        if (!$investigator) {
++            throw new \RuntimeException('default investigator 01001 is not imported');
++        }
++
++        $deck = new Deck();
++        $deck->setDescriptionMd('');
++        $deck->setCharacter($investigator);
++        $deck->setLastPack($investigator->getPack());
++        $deck->setName('E2E Test Deck');
++        $deck->setMeta('');
++        $deck->setProblem('too_few_cards');
++        $deck->setTags($investigator->getFaction()->getCode());
++        $deck->setUser($user);
++
++        $em->persist($deck);
++        $em->flush();
++
++        return $deck;
++    }
++}

@@ -21,7 +21,7 @@ parameters:
     
     # Branding
     website_name: ArkhamDb
-    website_url: localhost
+    website_url: '%env(ARKHAMDB_WEBSITE_URL)%'
     game_name: Arkham Horror LCG
     publisher_name: Fantasy Flight Games
     
