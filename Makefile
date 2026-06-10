@@ -1,7 +1,3 @@
-setup:
-	git clone https://github.com/Kamalisk/arkhamdb
-	git clone https://github.com/Kamalisk/arkhamdb-json-data
-
 init-db:
 	docker exec -it arkhamdb-app-1 php bin/console doctrine:schema:create
 

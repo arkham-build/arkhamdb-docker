@@ -1,0 +1,6 @@
+[submodule "arkhamdb"]
+	path = arkhamdb
+	url = git@github.com:Kamalisk/arkhamdb.git
+[submodule "arkhamdb-json-data"]
+	path = arkhamdb-json-data
+	url = git@github.com:Kamalisk/arkhamdb-json-data.git

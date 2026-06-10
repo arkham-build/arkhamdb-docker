@@ -14,18 +14,14 @@
 # 1. clone this git repository to a folder and change to it.
 git clone https://github.com/fspoettel/arkhamdb-docker && cd arkhamdb-docker
 
-# 2. Clone arkhamdb and arkhamdb-json-data repositories.
-#    If you want to use a fork of the data repository, adjust the command to use your fork.
-make setup
-
-# 3. Start the containers in one terminal.
+# 2. Start the containers in one terminal.
 docker compose up
 
-# 4. In a second terminal, initialize the database.
+# 3. In a second terminal, initialize the database.
 #    You only need to do this once on first run.
 make init-db
 
-# 5. Import card data.
+# 4. Import card data.
 make import-cards
 ```
 
